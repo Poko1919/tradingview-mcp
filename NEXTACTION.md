@@ -16,12 +16,10 @@
 - [x] `TVPrototype.run()` E2E 動作確認 (PF/WR/totalTrades 正常取得)
 - [x] `watchlist_remove` 実装 (core/tools/cli) + CLI テスト追加 (pane/tab/watchlist)
 - [x] `--help` タイムアウト修正 (cold disk cache, 15s→30s) + watchlist_remove e2e テスト追加
+- [x] `data_get_study_values` study_filter 対応 (core/tools/cli)
+- [x] `replay_trade` 詳細テスト (sell + full buy/step/close + P&L)
+- [x] watchlist add→remove フロー e2e (BITSTAMP:LTCUSD テストシンボル)
 
 ## 次の優先タスク
 
-**計画中の必須タスクなし** — 保留 (nice-to-have) のみ残っている。
-
-## 保留 (nice-to-have)
-- `data_get_study_values` の study_filter 対応
-- `replay_trade` のより詳細なテスト
-- 実際の add→remove フロー e2e（TradingView 接続 + テスト用シンボルの追加・削除）
+**なし** — すべてのタスクを消化。新規要件が来るまで作業なし。
