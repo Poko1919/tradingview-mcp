@@ -6,6 +6,11 @@
 - [x] tab 管理 (tab_list, tab_new, tab_close, tab_switch)
 - [x] README / SECURITY.md / RESEARCH.md / SETUP_GUIDE.md 整備
 - [x] Pane & Tab の e2e テスト追加
+- [x] `scripts/fx_monitor.py` — FX マルチシンボル監視（Discord アラート付き）
+
+## 保留中
+- [ ] git push（origin が tradesdontlie/tradingview-mcp.git のため権限なし）
+  - Poko1919 で fork 作成後 → `git remote set-url origin https://github.com/Poko1919/tradingview-mcp.git && git push`
 
 ## 次の優先タスク
 
