@@ -15,16 +15,13 @@
 - [x] `data strategy` コンパクト出力 (64KB パイプ制限対策)
 - [x] `TVPrototype.run()` E2E 動作確認 (PF/WR/totalTrades 正常取得)
 - [x] `watchlist_remove` 実装 (core/tools/cli) + CLI テスト追加 (pane/tab/watchlist)
+- [x] `--help` タイムアウト修正 (cold disk cache, 15s→30s) + watchlist_remove e2e テスト追加
 
 ## 次の優先タスク
 
-### 1. watchlist_remove e2e テスト
-- `tests/e2e.test.js` に watchlist add → remove のフローテストを追加（TradingView 接続必須）
+**計画中の必須タスクなし** — 保留 (nice-to-have) のみ残っている。
 
-### 2. `--help` タイムアウト調査
-- `tests/cli.test.js` の `--help shows command list` が 15秒タイムアウトで flaky
-- `-h` は 12秒でパス。`tv --help` が初回起動時に遅延している可能性
-
-## 保留
-- `data_get_study_values` の study_filter 対応（nice-to-have）
+## 保留 (nice-to-have)
+- `data_get_study_values` の study_filter 対応
 - `replay_trade` のより詳細なテスト
+- 実際の add→remove フロー e2e（TradingView 接続 + テスト用シンボルの追加・削除）
