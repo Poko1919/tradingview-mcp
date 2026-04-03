@@ -1,0 +1,127 @@
+//@version=6
+indicator("MSB-OB Signal", overlay=true, max_boxes_count=10, max_labels_count=50)
+
+// ============================================================
+// パラメータ
+// ============================================================
+pivot_len    = input.int(5,  "Pivot Length",        minval=1, maxval=20)
+ob_extend    = input.int(20, "OB Box Extend (bars)", minval=1, maxval=100)
+bull_col     = input.color(color.new(color.blue,  70), "Bullish OB Color")
+bear_col     = input.color(color.new(color.red,   70), "Bearish OB Color")
+label_bull_col = input.color(color.new(color.blue, 0),  "MSB↑ Label Color")
+label_bear_col = input.color(color.new(color.red,  0),  "MSB↓ Label Color")
+show_ob      = input.bool(true, "Show Order Blocks")
+show_labels  = input.bool(true, "Show MSB Labels")
+
+// ============================================================
+// スイング高値・安値の検出
+// ============================================================
+ph = ta.pivothigh(high, pivot_len, pivot_len)
+pl = ta.pivotlow (low,  pivot_len, pivot_len)
+
+// 直近のスイング高値・安値を追跡
+var float last_swing_high = na
+var float last_swing_low  = na
+var int   last_swing_high_bar = na
+var int   last_swing_low_bar  = na
+
+if not na(ph)
+    last_swing_high     := ph
+    last_swing_high_bar := bar_index - pivot_len
+
+if not na(pl)
+    last_swing_low     := pl
+    last_swing_low_bar := bar_index - pivot_len
+
+// ============================================================
+// Market Structure Break 検知
+// ============================================================
+// 高値ブレイク: 現在の終値が直近スイング高値を上抜け → Bullish MSB
+// 安値ブレイク: 現在の終値が直近スイング安値を下抜け → Bearish MSB
+
+var bool bull_msb_prev = false
+var bool bear_msb_prev = false
+
+bull_msb = not na(last_swing_high) and close > last_swing_high and not bull_msb_prev
+bear_msb = not na(last_swing_low)  and close < last_swing_low  and not bear_msb_prev
+
+// 同一ブレイクの連続検知を防ぐフラグ更新
+bull_msb_prev := close > last_swing_high ? true  : (close < last_swing_high ? false : bull_msb_prev)
+bear_msb_prev := close < last_swing_low  ? true  : (close > last_swing_low  ? false : bear_msb_prev)
+
+// ============================================================
+// MSBラベル描画
+// ============================================================
+if show_labels
+    if bull_msb
+        label.new(
+             bar_index, high,
+             text       = "MSB ↑",
+             style      = label.style_label_up,
+             color      = label_bull_col,
+             textcolor  = color.white,
+             size       = size.normal
+         )
+
+    if bear_msb
+        label.new(
+             bar_index, low,
+             text       = "MSB ↓",
+             style      = label.style_label_down,
+             color      = label_bear_col,
+             textcolor  = color.white,
+             size       = size.normal
+         )
+
+// ============================================================
+// Order Block ゾーン描画
+// ============================================================
+// Bullish MSB: MSB直前の下降ローソク足（close < open）を OB とする
+// Bearish MSB: MSB直前の上昇ローソク足（close > open）を OB とする
+
+if show_ob
+    if bull_msb
+        // MSB直前（1本前）の下降バーを探す
+        ob_bar = bar_index - 1
+        ob_high = high[1]
+        ob_low  = low[1]
+        // 1本前が陽線なら2本前を使う（直前の下降バーを優先）
+        if close[1] >= open[1] and bar_index >= 2
+            ob_high := high[2]
+            ob_low  := low[2]
+            ob_bar  := bar_index - 2
+        box.new(
+             left        = ob_bar,
+             top         = ob_high,
+             right       = bar_index + ob_extend,
+             bottom      = ob_low,
+             border_color = color.new(color.blue, 30),
+             bgcolor      = bull_col
+         )
+
+    if bear_msb
+        // MSB直前（1本前）の上昇バーを探す
+        ob_bar = bar_index - 1
+        ob_high = high[1]
+        ob_low  = low[1]
+        // 1本前が陰線なら2本前を使う（直前の上昇バーを優先）
+        if close[1] < open[1] and bar_index >= 2
+            ob_high := high[2]
+            ob_low  := low[2]
+            ob_bar  := bar_index - 2
+        box.new(
+             left        = ob_bar,
+             top         = ob_high,
+             right       = bar_index + ob_extend,
+             bottom      = ob_low,
+             border_color = color.new(color.red, 30),
+             bgcolor      = bear_col
+         )
+
+// ============================================================
+// デバッグ用プロット（ピボットの可視化）
+// ============================================================
+plotshape(not na(ph), style=shape.triangledown, location=location.abovebar,
+          color=color.gray, size=size.tiny, offset=-pivot_len)
+plotshape(not na(pl), style=shape.triangleup,   location=location.belowbar,
+          color=color.gray, size=size.tiny, offset=-pivot_len)
