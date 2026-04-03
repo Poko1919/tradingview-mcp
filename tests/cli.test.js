@@ -108,6 +108,38 @@ describe('CLI — help and routing', () => {
     assert.equal(exitCode, 1);
     assert.ok(stderr.includes('Index required'));
   });
+
+  it('pane focus missing arg exits 1', () => {
+    const { exitCode, stderr } = run(['pane', 'focus']);
+    assert.equal(exitCode, 1);
+    assert.ok(stderr.includes('Index required'));
+  });
+
+  it('pane symbol missing args exits 1', () => {
+    const { exitCode, stderr } = run(['pane', 'symbol']);
+    assert.equal(exitCode, 1);
+    assert.ok(stderr.includes('Usage: tv pane symbol'));
+  });
+
+  it('watchlist --help shows subcommands', () => {
+    const { stdout, exitCode } = run(['watchlist', '--help']);
+    assert.equal(exitCode, 0);
+    assert.ok(stdout.includes('get'));
+    assert.ok(stdout.includes('add'));
+    assert.ok(stdout.includes('remove'));
+  });
+
+  it('watchlist add missing arg exits 1', () => {
+    const { exitCode, stderr } = run(['watchlist', 'add']);
+    assert.equal(exitCode, 1);
+    assert.ok(stderr.includes('Symbol required'));
+  });
+
+  it('watchlist remove missing arg exits 1', () => {
+    const { exitCode, stderr } = run(['watchlist', 'remove']);
+    assert.equal(exitCode, 1);
+    assert.ok(stderr.includes('Symbol required'));
+  });
 });
 
 describe('CLI — pine analyze (offline)', () => {

@@ -130,3 +130,60 @@ export async function add({ symbol }) {
 
   return { success: true, symbol, action: 'added' };
 }
+
+export async function remove({ symbol }) {
+  const c = await getClient();
+
+  // Get positions of all symbols in the watchlist (avoid injecting symbol into JS)
+  const positions = await evaluate(`
+    (function() {
+      var container = document.querySelector('[class*="layout__area--right"]');
+      if (!container) return { error: 'Watchlist panel not found' };
+
+      var results = [];
+      var seen = {};
+      var allSymbols = container.querySelectorAll('[data-symbol-full]');
+      for (var i = 0; i < allSymbols.length; i++) {
+        var sym = allSymbols[i].getAttribute('data-symbol-full');
+        if (!sym || seen[sym]) continue;
+        seen[sym] = true;
+        var rect = allSymbols[i].getBoundingClientRect();
+        results.push({ symbol: sym, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+      }
+      return { positions: results };
+    })()
+  `);
+
+  if (positions?.error) throw new Error(positions.error);
+
+  const target = positions?.positions?.find(p => p.symbol === symbol);
+  if (!target) throw new Error(`Symbol not found in watchlist: ${symbol}`);
+
+  // Right-click to open context menu
+  await c.Input.dispatchMouseEvent({ type: 'mousePressed', x: target.x, y: target.y, button: 'right', clickCount: 1 });
+  await c.Input.dispatchMouseEvent({ type: 'mouseReleased', x: target.x, y: target.y, button: 'right', clickCount: 1 });
+  await new Promise(r => setTimeout(r, 300));
+
+  // Click "Remove" in context menu
+  const removed = await evaluate(`
+    (function() {
+      var items = document.querySelectorAll('[role="menuitem"], [class*="menuItem"], [class*="menu-item"]');
+      for (var i = 0; i < items.length; i++) {
+        var text = items[i].textContent.trim().toLowerCase();
+        if (text === 'remove' || text === 'delete' || /^remove/.test(text)) {
+          items[i].click();
+          return { found: true, text: items[i].textContent.trim() };
+        }
+      }
+      return { found: false };
+    })()
+  `);
+
+  if (!removed?.found) {
+    await c.Input.dispatchKeyEvent({ type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await c.Input.dispatchKeyEvent({ type: 'keyUp', key: 'Escape', code: 'Escape' });
+    throw new Error('Remove option not found in context menu');
+  }
+
+  return { success: true, symbol, action: 'removed' };
+}
