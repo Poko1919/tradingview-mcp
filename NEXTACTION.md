@@ -14,17 +14,16 @@
 - [x] `pine compile` ボタン検出修正 (title 属性対応、Save ダイアログ自動処理)
 - [x] `data strategy` コンパクト出力 (64KB パイプ制限対策)
 - [x] `TVPrototype.run()` E2E 動作確認 (PF/WR/totalTrades 正常取得)
+- [x] `watchlist_remove` 実装 (core/tools/cli) + CLI テスト追加 (pane/tab/watchlist)
 
 ## 次の優先タスク
 
-### 1. watchlist_remove の実装
-- `core/watchlist.js` に `remove({ symbol })` を追加（右クリックメニュー or Delete キー）
-- `tools/watchlist.js` に `watchlist_remove` ツールを登録
-- `cli/commands/watchlist.js` に `remove` サブコマンドを追加
-- e2e テストを追加
+### 1. watchlist_remove e2e テスト
+- `tests/e2e.test.js` に watchlist add → remove のフローテストを追加（TradingView 接続必須）
 
-### 2. CLI test カバレッジ
-- `tests/cli.test.js` に pane/tab コマンドのテストを追加
+### 2. `--help` タイムアウト調査
+- `tests/cli.test.js` の `--help shows command list` が 15秒タイムアウトで flaky
+- `-h` は 12秒でパス。`tv --help` が初回起動時に遅延している可能性
 
 ## 保留
 - `data_get_study_values` の study_filter 対応（nice-to-have）
