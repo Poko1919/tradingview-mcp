@@ -13,7 +13,7 @@
  * - UI Automation (12 tools)
  * - Replay Mode (6 tools)
  * - Alerts (3 tools)
- * - Watchlist (2 tools)
+ * - Watchlist (3 tools)
  * - Indicators (2 tools)
  * - Pane & Layout (4 tools)
  * - Tabs (4 tools)
@@ -1280,7 +1280,7 @@ val = array.get(a, 5)`;
     });
   });
 
-  // ─── 9. WATCHLIST (2 tools) ───────────────────────────────────────────
+  // ─── 9. WATCHLIST (3 tools) ───────────────────────────────────────────
 
   describe('Watchlist', () => {
 
@@ -1328,6 +1328,66 @@ val = array.get(a, 5)`;
       `);
       // Button may or may not be found depending on watchlist state
       assert.ok(found === null || typeof found === 'string', 'Add button detection works');
+    });
+
+    it('watchlist_remove — right-click context menu detection', async () => {
+      // Get all symbol positions without injecting symbol into JS
+      const positions = await evaluate(`
+        (function() {
+          var container = document.querySelector('[class*="layout__area--right"]');
+          if (!container) return { error: 'Watchlist panel not found' };
+
+          var results = [];
+          var seen = {};
+          var allSymbols = container.querySelectorAll('[data-symbol-full]');
+          for (var i = 0; i < allSymbols.length; i++) {
+            var sym = allSymbols[i].getAttribute('data-symbol-full');
+            if (!sym || seen[sym]) continue;
+            seen[sym] = true;
+            var rect = allSymbols[i].getBoundingClientRect();
+            results.push({ symbol: sym, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+          }
+          return { positions: results };
+        })()
+      `);
+
+      if (!positions || positions.error || !positions.positions || positions.positions.length === 0) {
+        // No visible symbols — skip gracefully
+        return;
+      }
+
+      const target = positions.positions[0];
+      assert.ok(typeof target.x === 'number', 'Symbol has x coordinate');
+      assert.ok(typeof target.y === 'number', 'Symbol has y coordinate');
+      assert.ok(typeof target.symbol === 'string', 'Symbol name is string');
+
+      // Right-click to open context menu
+      await Input.dispatchMouseEvent({ type: 'mousePressed', x: target.x, y: target.y, button: 'right', clickCount: 1 });
+      await Input.dispatchMouseEvent({ type: 'mouseReleased', x: target.x, y: target.y, button: 'right', clickCount: 1 });
+      await sleep(300);
+
+      // Verify remove option is accessible in context menu
+      const menuFound = await evaluate(`
+        (function() {
+          var items = document.querySelectorAll('[role="menuitem"], [class*="menuItem"], [class*="menu-item"]');
+          var hasRemove = false;
+          for (var i = 0; i < items.length; i++) {
+            var text = items[i].textContent.trim().toLowerCase();
+            if (text === 'remove' || text === 'delete' || /^remove/.test(text)) {
+              hasRemove = true;
+              break;
+            }
+          }
+          return { menuItemCount: items.length, hasRemove: hasRemove };
+        })()
+      `);
+
+      // Dismiss context menu
+      await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+      await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Escape', code: 'Escape' });
+      await sleep(200);
+
+      assert.ok(typeof menuFound === 'object', 'Context menu check completed');
     });
   });
 

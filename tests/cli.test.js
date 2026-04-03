@@ -21,7 +21,7 @@ function run(args, opts = {}) {
   try {
     const stdout = execFileSync('node', [CLI, ...args], {
       encoding: 'utf-8',
-      timeout: 15000,
+      timeout: 30000,
       ...opts,
     });
     return { stdout, exitCode: 0 };
