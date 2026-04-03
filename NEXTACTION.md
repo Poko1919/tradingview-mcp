@@ -10,6 +10,10 @@
 - [x] `pine/msb_ob_signal.pine` — MSB-OB Pine Script v6 インジケータ
 - [x] `scripts/msb_ob_bridge.py` — MSB-OB → crypto_auto_trading シグナルブリッジ
 - [x] Poko1919/tradingview-mcp fork 作成 + origin 切り替え + push 完了
+- [x] 英語 UI 切り替え (jp.tradingview.com → www.tradingview.com)
+- [x] `pine compile` ボタン検出修正 (title 属性対応、Save ダイアログ自動処理)
+- [x] `data strategy` コンパクト出力 (64KB パイプ制限対策)
+- [x] `TVPrototype.run()` E2E 動作確認 (PF/WR/totalTrades 正常取得)
 
 ## 次の優先タスク
 
