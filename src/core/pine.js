@@ -289,22 +289,23 @@ export async function compile() {
     (function() {
       var btns = document.querySelectorAll('button');
       var fallback = null;
-      var saveBtn = null;
       for (var i = 0; i < btns.length; i++) {
-        var text = btns[i].textContent.trim();
-        if (/save and add to chart/i.test(text)) {
-          btns[i].click();
+        var btn = btns[i];
+        if (!btn.offsetParent) continue;
+        var text = btn.textContent.trim();
+        var title = btn.getAttribute('title') || '';
+        var label = btn.getAttribute('aria-label') || '';
+        // "Save and add to chart" (text) — unsaved new script
+        if (/save and add to chart/i.test(text) || /save and add to chart/i.test(title)) {
+          btn.click();
           return 'Save and add to chart';
         }
-        if (!fallback && /^(Add to chart|Update on chart)/i.test(text)) {
-          fallback = btns[i];
-        }
-        if (!saveBtn && btns[i].className.indexOf('saveButton') !== -1 && btns[i].offsetParent !== null) {
-          saveBtn = btns[i];
+        // "Add to chart" / "Update on chart" — title attribute (English icon-only button)
+        if (!fallback && /^(Add to chart|Update on chart)/i.test(title || text || label)) {
+          fallback = btn;
         }
       }
-      if (fallback) { fallback.click(); return fallback.textContent.trim(); }
-      if (saveBtn) { saveBtn.click(); return 'Pine Save'; }
+      if (fallback) { fallback.click(); return fallback.getAttribute('title') || fallback.textContent.trim(); }
       return null;
     })()
   `);
@@ -445,20 +446,23 @@ export async function smartCompile() {
       var btns = document.querySelectorAll('button');
       var addBtn = null;
       var updateBtn = null;
-      var saveBtn = null;
       for (var i = 0; i < btns.length; i++) {
-        var text = btns[i].textContent.trim();
-        if (/save and add to chart/i.test(text)) {
-          btns[i].click();
+        var btn = btns[i];
+        if (!btn.offsetParent) continue;
+        var text = btn.textContent.trim();
+        var title = btn.getAttribute('title') || '';
+        var label = btn.getAttribute('aria-label') || '';
+        // "Save and add to chart" — text or title
+        if (/save and add to chart/i.test(text) || /save and add to chart/i.test(title)) {
+          btn.click();
           return 'Save and add to chart';
         }
-        if (!addBtn && /^add to chart$/i.test(text)) addBtn = btns[i];
-        if (!updateBtn && /^update on chart$/i.test(text)) updateBtn = btns[i];
-        if (!saveBtn && btns[i].className.indexOf('saveButton') !== -1 && btns[i].offsetParent !== null) saveBtn = btns[i];
+        // "Add to chart" — check text, title, or aria-label (icon-only button in English UI uses title)
+        if (!addBtn && /^add to chart$/i.test(text || title || label)) addBtn = btn;
+        if (!updateBtn && /^update on chart$/i.test(text || title || label)) updateBtn = btn;
       }
       if (addBtn) { addBtn.click(); return 'Add to chart'; }
       if (updateBtn) { updateBtn.click(); return 'Update on chart'; }
-      if (saveBtn) { saveBtn.click(); return 'Pine Save'; }
       return null;
     })()
   `);
@@ -469,7 +473,30 @@ export async function smartCompile() {
     await c.Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter' });
   }
 
-  await new Promise(r => setTimeout(r, 2500));
+  await new Promise(r => setTimeout(r, 800));
+
+  // Handle "Save Script" dialog that may appear when adding an unsaved script to chart
+  const saveDialogHandled = await evaluate(`
+    (function() {
+      var btns = document.querySelectorAll('button');
+      for (var i = 0; i < btns.length; i++) {
+        var text = btns[i].textContent.trim();
+        var title = btns[i].getAttribute('title') || '';
+        if ((text === 'Save' || title === 'Save') && btns[i].offsetParent !== null) {
+          // Make sure it's inside a save dialog (not a chart save button)
+          var parent = btns[i].closest('[class*="dialog"], [class*="Dialog"], [role="dialog"]');
+          if (parent) { btns[i].click(); return true; }
+        }
+      }
+      return false;
+    })()
+  `);
+
+  if (saveDialogHandled) {
+    await new Promise(r => setTimeout(r, 1500));
+  } else {
+    await new Promise(r => setTimeout(r, 1700));
+  }
 
   const errors = await evaluate(`
     (function() {

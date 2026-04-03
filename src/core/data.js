@@ -141,7 +141,8 @@ export async function getStrategyResults() {
         var strat = null;
         for (var i = 0; i < sources.length; i++) {
           var s = sources[i];
-          if (s.metaInfo && s.metaInfo().is_price_study === false && (s.reportData || s.performance)) { strat = s; break; }
+          // Match strategies by reportData (overlay=true strategies have is_price_study=true, not false)
+          if (s.reportData && s.metaInfo && s.metaInfo().is_price_study !== undefined) { strat = s; break; }
         }
         if (!strat) return {metrics: {}, source: 'internal_api', error: 'No strategy found on chart. Add a strategy indicator first.'};
         var metrics = {};
@@ -149,13 +150,36 @@ export async function getStrategyResults() {
           var rd = typeof strat.reportData === 'function' ? strat.reportData() : strat.reportData;
           if (rd && typeof rd === 'object') {
             if (typeof rd.value === 'function') rd = rd.value();
-            if (rd) { var keys = Object.keys(rd); for (var k = 0; k < keys.length; k++) { var val = rd[keys[k]]; if (val !== null && val !== undefined && typeof val !== 'function') metrics[keys[k]] = val; } }
+            if (rd && rd.performance && rd.performance.all) {
+              // Return compact summary — only key metrics, skip large arrays
+              var all = rd.performance.all;
+              metrics = {
+                currency: rd.currency,
+                profitFactor: all.profitFactor,
+                percentProfitable: all.percentProfitable,
+                numberOfWiningTrades: all.numberOfWiningTrades,
+                numberOfLosingTrades: all.numberOfLosingTrades,
+                totalOpenTrades: all.totalOpenTrades,
+                netProfit: all.netProfit,
+                netProfitPercent: all.netProfitPercent,
+                grossProfit: all.grossProfit,
+                grossLoss: all.grossLoss,
+                avgTrade: all.avgTrade,
+                maxStrategyDrawDown: rd.performance.maxStrategyDrawDown,
+                maxStrategyDrawDownPercent: rd.performance.maxStrategyDrawDownPercent,
+                sharpeRatio: rd.performance.sharpeRatio,
+              };
+            } else if (rd) {
+              // Fallback: copy only non-array, non-function scalar values
+              var keys = Object.keys(rd);
+              for (var k = 0; k < keys.length; k++) {
+                var val = rd[keys[k]];
+                if (val !== null && val !== undefined && typeof val !== 'function' && !Array.isArray(val) && typeof val !== 'object') {
+                  metrics[keys[k]] = val;
+                }
+              }
+            }
           }
-        }
-        if (Object.keys(metrics).length === 0 && strat.performance) {
-          var perf = strat.performance();
-          if (perf && typeof perf.value === 'function') perf = perf.value();
-          if (perf && typeof perf === 'object') { var pkeys = Object.keys(perf); for (var p = 0; p < pkeys.length; p++) { var pval = perf[pkeys[p]]; if (pval !== null && pval !== undefined && typeof pval !== 'function') metrics[pkeys[p]] = pval; } }
         }
         return {metrics: metrics, source: 'internal_api'};
       } catch(e) { return {metrics: {}, source: 'internal_api', error: e.message}; }
