@@ -121,6 +121,12 @@ describe('CLI — help and routing', () => {
     assert.ok(stderr.includes('Usage: tv pane symbol'));
   });
 
+  it('values --help shows filter option', () => {
+    const { stdout, exitCode } = run(['values', '--help']);
+    assert.equal(exitCode, 0);
+    assert.ok(stdout.includes('--filter') || stdout.includes('-f'));
+  });
+
   it('watchlist --help shows subcommands', () => {
     const { stdout, exitCode } = run(['watchlist', '--help']);
     assert.equal(exitCode, 0);

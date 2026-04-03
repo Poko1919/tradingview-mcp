@@ -11,7 +11,7 @@
  * - Pine Script (12 tools)
  * - Drawing (5 tools)
  * - UI Automation (12 tools)
- * - Replay Mode (6 tools)
+ * - Replay Mode (8 tools)
  * - Alerts (3 tools)
  * - Watchlist (3 tools)
  * - Indicators (2 tools)
@@ -1217,6 +1217,41 @@ val = array.get(a, 5)`;
       try { await evaluate(`${REPLAY_API}.closePosition()`); } catch {}
     });
 
+    it('replay_trade — sell action', async () => {
+      const started = await evaluate(wv(`${REPLAY_API}.isReplayStarted()`));
+      if (!started) return;
+
+      await evaluate(`${REPLAY_API}.sell()`);
+      const position = await evaluate(wv(`${REPLAY_API}.position()`));
+      assert.ok(position !== undefined, 'Position returned after sell');
+
+      // Close position
+      try { await evaluate(`${REPLAY_API}.closePosition()`); } catch {}
+    });
+
+    it('replay_trade — full buy/step/close cycle with P&L', async () => {
+      const started = await evaluate(wv(`${REPLAY_API}.isReplayStarted()`));
+      if (!started) return;
+
+      // Enter long
+      await evaluate(`${REPLAY_API}.buy()`);
+      const posAfterBuy = await evaluate(wv(`${REPLAY_API}.position()`));
+      assert.ok(posAfterBuy !== undefined, 'Position established after buy');
+
+      // Advance 3 bars so price moves
+      for (let i = 0; i < 3; i++) {
+        await evaluate(`${REPLAY_API}.doStep()`);
+        await sleep(100);
+      }
+
+      // Close and read P&L
+      await evaluate(`${REPLAY_API}.closePosition()`);
+      await sleep(100);
+      const pnl = await evaluate(wv(`${REPLAY_API}.realizedPL()`));
+      assert.ok(pnl !== undefined, 'Realized P&L returned after close');
+      assert.ok(typeof pnl === 'number' || pnl === null, 'P&L is numeric or null');
+    });
+
     it('replay_status — get replay state', async () => {
       const status = await evaluate(`
         (function() {
@@ -1388,6 +1423,145 @@ val = array.get(a, 5)`;
       await sleep(200);
 
       assert.ok(typeof menuFound === 'object', 'Context menu check completed');
+    });
+
+    it('watchlist add→remove full flow', async () => {
+      const TEST_SYMBOL = 'BITSTAMP:LTCUSD';
+
+      // Step 1: Check if test symbol is already in watchlist
+      const before = await evaluate(`
+        (function() {
+          var seen = {};
+          var els = document.querySelectorAll('[data-symbol-full]');
+          for (var i = 0; i < els.length; i++) {
+            var s = els[i].getAttribute('data-symbol-full');
+            if (s) seen[s] = true;
+          }
+          return seen;
+        })()
+      `);
+
+      if (before && before[TEST_SYMBOL]) {
+        // Symbol already in watchlist — skip to avoid accidentally removing it
+        return;
+      }
+
+      // Step 2: Ensure watchlist panel is open
+      await evaluate(`
+        (function() {
+          var btn = document.querySelector('[data-name="base-watchlist-widget-button"]')
+            || document.querySelector('[aria-label*="Watchlist"]');
+          if (btn) {
+            var active = btn.getAttribute('aria-pressed') === 'true'
+              || btn.classList.toString().indexOf('Active') !== -1;
+            if (!active) btn.click();
+          }
+        })()
+      `);
+      await sleep(500);
+
+      // Step 3: Click "Add symbol" button
+      const addClicked = await evaluate(`
+        (function() {
+          var selectors = ['[data-name="add-symbol-button"]', '[aria-label="Add symbol"]', '[aria-label*="Add symbol"]'];
+          for (var s = 0; s < selectors.length; s++) {
+            var btn = document.querySelector(selectors[s]);
+            if (btn && btn.offsetParent !== null) { btn.click(); return true; }
+          }
+          var container = document.querySelector('[class*="layout__area--right"]');
+          if (container) {
+            var btns = container.querySelectorAll('button');
+            for (var i = 0; i < btns.length; i++) {
+              if (/add.*symbol/i.test(btns[i].getAttribute('aria-label') || '') || btns[i].textContent.trim() === '+') {
+                btns[i].click();
+                return true;
+              }
+            }
+          }
+          return false;
+        })()
+      `);
+
+      if (!addClicked) return; // Add button not found — skip
+      await sleep(300);
+
+      // Step 4: Type test symbol and confirm
+      await Input.insertText({ text: TEST_SYMBOL });
+      await sleep(500);
+      await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+      await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter' });
+      await sleep(300);
+      await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+      await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Escape', code: 'Escape' });
+      await sleep(500);
+
+      // Step 5: Verify symbol was added
+      const afterAdd = await evaluate(`
+        (function() {
+          var els = document.querySelectorAll('[data-symbol-full]');
+          for (var i = 0; i < els.length; i++) {
+            if (els[i].getAttribute('data-symbol-full') === '${TEST_SYMBOL}') return true;
+          }
+          return false;
+        })()
+      `);
+
+      if (!afterAdd) return; // Add failed — skip remove step
+
+      // Step 6: Get position of test symbol and right-click to remove
+      const pos = await evaluate(`
+        (function() {
+          var els = document.querySelectorAll('[data-symbol-full]');
+          for (var i = 0; i < els.length; i++) {
+            if (els[i].getAttribute('data-symbol-full') === '${TEST_SYMBOL}') {
+              var r = els[i].getBoundingClientRect();
+              return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+            }
+          }
+          return null;
+        })()
+      `);
+
+      assert.ok(pos !== null, 'Test symbol position found for removal');
+
+      await Input.dispatchMouseEvent({ type: 'mousePressed', x: pos.x, y: pos.y, button: 'right', clickCount: 1 });
+      await Input.dispatchMouseEvent({ type: 'mouseReleased', x: pos.x, y: pos.y, button: 'right', clickCount: 1 });
+      await sleep(300);
+
+      const removed = await evaluate(`
+        (function() {
+          var items = document.querySelectorAll('[role="menuitem"], [class*="menuItem"], [class*="menu-item"]');
+          for (var i = 0; i < items.length; i++) {
+            var text = items[i].textContent.trim().toLowerCase();
+            if (text === 'remove' || text === 'delete' || /^remove/.test(text)) {
+              items[i].click();
+              return true;
+            }
+          }
+          return false;
+        })()
+      `);
+
+      if (!removed) {
+        // Dismiss menu and skip
+        await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+        await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Escape', code: 'Escape' });
+        return;
+      }
+      await sleep(400);
+
+      // Step 7: Verify symbol was removed
+      const afterRemove = await evaluate(`
+        (function() {
+          var els = document.querySelectorAll('[data-symbol-full]');
+          for (var i = 0; i < els.length; i++) {
+            if (els[i].getAttribute('data-symbol-full') === '${TEST_SYMBOL}') return true;
+          }
+          return false;
+        })()
+      `);
+
+      assert.ok(!afterRemove, 'Test symbol removed from watchlist');
     });
   });
 

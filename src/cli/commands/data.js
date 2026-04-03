@@ -20,7 +20,10 @@ register('ohlcv', {
 
 register('values', {
   description: 'Get current indicator values from data window',
-  handler: () => core.getStudyValues(),
+  options: {
+    filter: { type: 'string', short: 'f', description: 'Filter by study name substring (e.g., RSI)' },
+  },
+  handler: (opts) => core.getStudyValues({ study_filter: opts.filter }),
 });
 
 register('data', {
