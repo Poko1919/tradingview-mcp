@@ -62,7 +62,7 @@ def fetch_labels(study_filter: str = "MSB-OB") -> list[dict]:
     MSB-OB インジケータのラベル一覧を取得する。
     返り値: [{"text": "MSB ↑", "price": 1.2345}, ...]
     """
-    data = run_tv(["pine", "labels", "--study-filter", study_filter])
+    data = run_tv(["data", "labels", "--study-filter", study_filter])
     if not data or not data.get("success"):
         return []
 
@@ -82,7 +82,7 @@ def fetch_boxes(study_filter: str = "MSB-OB") -> list[dict]:
     MSB-OB インジケータのボックス（Order Block ゾーン）一覧を取得する。
     返り値: [{"high": 1.2400, "low": 1.2300}, ...]
     """
-    data = run_tv(["pine", "boxes", "--study-filter", study_filter])
+    data = run_tv(["data", "boxes", "--study-filter", study_filter])
     if not data or not data.get("success"):
         return []
 
