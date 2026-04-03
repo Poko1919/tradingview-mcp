@@ -7,10 +7,9 @@
 - [x] README / SECURITY.md / RESEARCH.md / SETUP_GUIDE.md 整備
 - [x] Pane & Tab の e2e テスト追加
 - [x] `scripts/fx_monitor.py` — FX マルチシンボル監視（Discord アラート付き）
-
-## 保留中
-- [ ] git push（origin が tradesdontlie/tradingview-mcp.git のため権限なし）
-  - Poko1919 で fork 作成後 → `git remote set-url origin https://github.com/Poko1919/tradingview-mcp.git && git push`
+- [x] `pine/msb_ob_signal.pine` — MSB-OB Pine Script v6 インジケータ
+- [x] `scripts/msb_ob_bridge.py` — MSB-OB → crypto_auto_trading シグナルブリッジ
+- [x] Poko1919/tradingview-mcp fork 作成 + origin 切り替え + push 完了
 
 ## 次の優先タスク
 
