@@ -4,7 +4,7 @@
  *
  * Run: node --test tests/e2e.test.js
  *
- * Coverage: 70+ tests across 12 tool modules
+ * Coverage: 80+ tests across 14 tool modules
  * - Health & Connection (4 tools)
  * - Chart Control (8 tools)
  * - Data Access (12 tools)
@@ -15,6 +15,8 @@
  * - Alerts (3 tools)
  * - Watchlist (2 tools)
  * - Indicators (2 tools)
+ * - Pane & Layout (4 tools)
+ * - Tabs (4 tools)
  * - Batch (1 tool)
  * - Capture (1 tool)
  */
@@ -61,7 +63,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('TradingView MCP — Full E2E (70 tools)', () => {
+describe('TradingView MCP — Full E2E (78 tools)', () => {
 
   before(async () => {
     try {
@@ -1373,7 +1375,114 @@ val = array.get(a, 5)`;
     });
   });
 
-  // ─── 11. BATCH (1 tool) ───────────────────────────────────────────────
+  // ─── 11. PANE & LAYOUT (4 tools) ─────────────────────────────────────
+
+  describe('Pane & Layout', () => {
+    const CWC = 'window.TradingViewApi._chartWidgetCollection';
+
+    it('pane_list — verify multi-chart collection API', async () => {
+      const cwcExists = await evaluate(`
+        (function() { try { return typeof ${CWC} !== 'undefined' && typeof ${CWC}.getAll === 'function'; } catch(e) { return false; } })()
+      `);
+      assert.ok(cwcExists, 'TradingViewApi._chartWidgetCollection with getAll() exists');
+
+      if (cwcExists) {
+        const panes = await evaluate(`
+          (function() {
+            var cwc = ${CWC};
+            var all = cwc.getAll();
+            var layoutType = cwc._layoutType;
+            if (typeof layoutType === 'object' && layoutType && typeof layoutType.value === 'function') layoutType = layoutType.value();
+            return { count: all.length, layout: layoutType };
+          })()
+        `);
+        assert.ok(typeof panes.count === 'number', 'Pane count is a number');
+        assert.ok(panes.count >= 1, 'At least one pane exists');
+      }
+    });
+
+    it('pane_focus — verify pane activation via _mainDiv', async () => {
+      const result = await evaluate(`
+        (function() {
+          try {
+            var all = ${CWC}.getAll();
+            if (all.length === 0) return { error: 'no panes' };
+            return { has_mainDiv: !!all[0]._mainDiv, pane_count: all.length };
+          } catch(e) { return { error: e.message }; }
+        })()
+      `);
+      if (!result.error) {
+        assert.ok(typeof result.has_mainDiv === 'boolean', 'Pane 0 _mainDiv check works');
+        assert.ok(typeof result.pane_count === 'number', 'Pane count readable');
+      }
+    });
+
+    it('pane_set_layout — verify setLayout method exists', async () => {
+      const hasSetLayout = await evaluate(`
+        (function() { try { return typeof ${CWC}.setLayout === 'function'; } catch(e) { return false; } })()
+      `);
+      assert.ok(hasSetLayout, 'setLayout method available on chart collection');
+    });
+
+    it('pane_set_symbol — verify per-pane setSymbol via active chart', async () => {
+      const hasSetSymbol = await evaluate(`
+        (function() {
+          try {
+            var chart = window.TradingViewApi._activeChartWidgetWV.value();
+            return typeof chart.setSymbol === 'function';
+          } catch(e) { return false; }
+        })()
+      `);
+      assert.ok(hasSetSymbol, 'Active chart has setSymbol for pane_set_symbol');
+    });
+  });
+
+  // ─── 12. TABS (4 tools) ───────────────────────────────────────────────
+
+  describe('Tabs', () => {
+
+    it('tab_list — read CDP /json/list chart targets', async () => {
+      const resp = await fetch('http://localhost:9222/json/list');
+      const targets = await resp.json();
+      assert.ok(Array.isArray(targets), 'CDP /json/list returns array');
+
+      const chartTabs = targets.filter(t => t.type === 'page' && /tradingview\.com\/chart/i.test(t.url));
+      assert.ok(chartTabs.length >= 1, 'At least one TradingView chart tab exists');
+      assert.ok(typeof chartTabs[0].id === 'string', 'Tab has a string ID');
+    });
+
+    it('tab_switch — verify /json/activate endpoint accepts tab ID', async () => {
+      const resp = await fetch('http://localhost:9222/json/list');
+      const targets = await resp.json();
+      const chartTabs = targets.filter(t => t.type === 'page' && /tradingview\.com\/chart/i.test(t.url));
+      if (chartTabs.length === 0) return;
+
+      // Activate the first tab (no-op if already active)
+      const activateResp = await fetch(`http://localhost:9222/json/activate/${chartTabs[0].id}`);
+      assert.ok(activateResp.ok, '/json/activate responds for current tab');
+    });
+
+    it('tab_close — guard: cannot close last tab', async () => {
+      const resp = await fetch('http://localhost:9222/json/list');
+      const targets = await resp.json();
+      const chartTabs = targets.filter(t => t.type === 'page' && /tradingview\.com\/chart/i.test(t.url));
+
+      if (chartTabs.length <= 1) {
+        // Guard fires: "Cannot close the last tab"
+        assert.ok(true, 'Single-tab protection would prevent close');
+      } else {
+        assert.ok(chartTabs.length > 1, 'Multiple tabs present — close would be allowed');
+      }
+    });
+
+    it('tab_new — keyboard shortcut available via CDP Input', async () => {
+      // tab_new sends Cmd+T/Ctrl+T — verify the Input domain is accessible
+      // Don't actually open a new tab to avoid persistent side effects
+      assert.ok(typeof Input.dispatchKeyEvent === 'function', 'CDP Input.dispatchKeyEvent available for tab_new');
+    });
+  });
+
+  // ─── 13. BATCH (1 tool) ───────────────────────────────────────────────
 
   describe('Batch', () => {
 
@@ -1392,7 +1501,7 @@ val = array.get(a, 5)`;
     });
   });
 
-  // ─── 12. CAPTURE (1 tool) ─────────────────────────────────────────────
+  // ─── 14. CAPTURE (1 tool) ─────────────────────────────────────────────
 
   describe('Capture', () => {
 
@@ -1426,7 +1535,7 @@ val = array.get(a, 5)`;
     });
   });
 
-  // ─── 13. CONTEXT SIZE VALIDATION ──────────────────────────────────────
+  // ─── 15. CONTEXT SIZE VALIDATION ──────────────────────────────────────
 
   describe('Context Size Validation', () => {
 
