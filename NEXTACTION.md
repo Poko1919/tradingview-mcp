@@ -22,4 +22,17 @@
 
 ## 次の優先タスク
 
-**なし** — すべてのタスクを消化。新規要件が来るまで作業なし。
+**検討中（2026-04-03）: MT5 EA への活用**
+
+### 優先高（即着手可）
+- [ ] マクロフィルタ統合: `data_get_study_values` で VIX/DXY 取得 → JSON → MT5 `FileOpen()` → EA ロット係数反映
+  - 対象: instance_gold_live (XAUUSD) — VIX/DXY 感応度が高い
+  - ea_trading_system NEXTACTION.md にも構想メモあり (マクロフィルタ統合セクション)
+
+### 優先中（factory パイプライン安定後）
+- [ ] Pine ゲート (factory_qa.py Phase 2.5): EA 候補 BT 前に TV でシグナル確認 → 無駄 BT 削減
+  - ea_trading_system NEXTACTION.md:7 に `[ ]` タスクとして残存
+
+### 優先低（設計が必要）
+- [ ] リアルタイム Pine ライン → TP/SL ブリッジ: `data_get_pine_lines` → Windows Agent (port 8050) → EA の TP/SL 動的更新
+- [ ] MTF フィルター: 上位 TF (D1/H4) の Bias ラベルと EA エントリー方向を一致させるフィルター
