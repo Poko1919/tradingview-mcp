@@ -25,9 +25,12 @@
 **検討中（2026-04-03）: MT5 EA への活用**
 
 ### 優先高（即着手可）
-- [ ] マクロフィルタ統合: `data_get_study_values` で VIX/DXY 取得 → JSON → MT5 `FileOpen()` → EA ロット係数反映
+- [x] マクロフィルタ統合: `data_get_study_values` で VIX/DXY 取得 → JSON → MT5 `FileOpen()` → EA ロット係数反映
+  - `scripts/macro_filter.py` — VIX/DXY 取得・ロット係数算出・macro_filter.json 書き出し
+  - `mql5/MacroFilterReader.mqh` — MT5 EA 用 FileOpen() 読み込みヘッダー（GetMacroLotMultiplier()）
+  - `tests/test_macro_filter.py` — pytest 21件全通過
   - 対象: instance_gold_live (XAUUSD) — VIX/DXY 感応度が高い
-  - ea_trading_system NEXTACTION.md にも構想メモあり (マクロフィルタ統合セクション)
+  - 次: ea_trading_system 側で `#include "MacroFilterReader.mqh"` を組み込む（ea_trading_system NEXTACTION.md を更新）
 
 ### 優先中（factory パイプライン安定後）
 - [ ] Pine ゲート (factory_qa.py Phase 2.5): EA 候補 BT 前に TV でシグナル確認 → 無駄 BT 削減
