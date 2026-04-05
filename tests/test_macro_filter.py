@@ -186,3 +186,53 @@ class TestRunOnce:
 
         assert payload["vix"] is None
         assert payload["lot_multiplier"] == 0.5
+
+    def test_push_windows_called_when_flag_set(self, tmp_path):
+        output = tmp_path / "macro_filter.json"
+        with patch.object(macro_filter, "run_tv", return_value=None):
+            with patch.object(macro_filter, "fetch_via_symbol_switch", return_value=None):
+                with patch.object(macro_filter, "push_to_windows", return_value=True) as mock_push:
+                    macro_filter.run_once(output, push_windows=True)
+        mock_push.assert_called_once()
+
+    def test_push_windows_not_called_by_default(self, tmp_path):
+        output = tmp_path / "macro_filter.json"
+        with patch.object(macro_filter, "run_tv", return_value=None):
+            with patch.object(macro_filter, "fetch_via_symbol_switch", return_value=None):
+                with patch.object(macro_filter, "push_to_windows", return_value=True) as mock_push:
+                    macro_filter.run_once(output)
+        mock_push.assert_not_called()
+
+
+# ──────────────────────────────────────────────
+# push_to_windows
+# ──────────────────────────────────────────────
+
+class TestPushToWindows:
+    def test_dry_run_returns_true(self):
+        result = macro_filter.push_to_windows('{"lot_multiplier": 1.0}', dry_run=True)
+        assert result is True
+
+    def test_connection_error_returns_false(self):
+        import urllib.error
+        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("connection refused")):
+            result = macro_filter.push_to_windows('{"lot_multiplier": 1.0}')
+        assert result is False
+
+    def test_nonzero_returncode_returns_false(self):
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({"returncode": 1, "stderr": "error"}).encode()
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+        with patch("urllib.request.urlopen", return_value=mock_response):
+            result = macro_filter.push_to_windows('{"lot_multiplier": 1.0}')
+        assert result is False
+
+    def test_success_returns_true(self):
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({"returncode": 0, "stdout": ""}).encode()
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+        with patch("urllib.request.urlopen", return_value=mock_response):
+            result = macro_filter.push_to_windows('{"lot_multiplier": 1.0}')
+        assert result is True

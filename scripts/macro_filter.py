@@ -16,12 +16,15 @@ MT5 EA が FileOpen() で読み込める macro_filter.json を生成する。
 """
 
 import argparse
+import base64
 import json
 import logging
 import os
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -35,6 +38,12 @@ log = logging.getLogger(__name__)
 
 # JSON 書き出しデフォルトパス（プロジェクトルート）
 DEFAULT_OUTPUT = Path(__file__).parent.parent / "macro_filter.json"
+
+# OANDA MT5 MQL5/Files のWindowsパス
+OANDA_MT5_FILES_PATH = (
+    "C:/Users/moret/AppData/Roaming/MetaQuotes/Terminal"
+    "/EE0304F13905552AE0B5EAEFB04866EB/MQL5/Files/macro_filter.json"
+)
 
 # ──────────────────────────────────────────────
 # ロット係数ロジック
@@ -188,6 +197,55 @@ def build_payload(vix: Optional[float], dxy: Optional[float]) -> dict:
     }
 
 
+def push_to_windows(json_text: str, dry_run: bool = False) -> bool:
+    """
+    macro_filter.json を Windows Agent 経由で OANDA MT5 MQL5/Files に書き込む。
+
+    環境変数:
+        EA_WINDOWS_AGENT_URL / EA_VPS_AGENT_URL — Windows Agent URL
+        EA_WINDOWS_AGENT_TOKEN / EA_VPS_AGENT_TOKEN — Bearer トークン
+    """
+    agent_url = os.getenv(
+        "EA_WINDOWS_AGENT_URL",
+        os.getenv("EA_VPS_AGENT_URL", "http://100.66.50.98:8050"),
+    ).rstrip("/")
+    token = os.getenv("EA_WINDOWS_AGENT_TOKEN", os.getenv("EA_VPS_AGENT_TOKEN", ""))
+    target = OANDA_MT5_FILES_PATH
+
+    # base64 → PowerShell -EncodedCommand でエスケープ問題を回避
+    ps_script = (
+        f"$b=[System.Convert]::FromBase64String('{base64.b64encode(json_text.encode()).decode()}');"
+        f"[System.IO.File]::WriteAllBytes('{target}', $b)"
+    )
+    encoded = base64.b64encode(ps_script.encode("utf-16-le")).decode("ascii")
+    command = f"powershell -NonInteractive -EncodedCommand {encoded}"
+
+    if dry_run:
+        log.info("[DRY RUN] Windows push: %s", target)
+        return True
+
+    body = json.dumps({"command": command, "timeout": 20}).encode()
+    headers: dict[str, str] = {"Content-Type": "application/json", "Accept": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    req = urllib.request.Request(f"{agent_url}/exec", data=body, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode())
+        if result.get("returncode", -1) != 0:
+            log.error("Windows push 失敗 (rc=%d): %s", result.get("returncode"), result.get("stderr", ""))
+            return False
+        log.info("Windows push 完了: %s", target)
+        return True
+    except urllib.error.URLError as e:
+        log.error("Windows push 接続エラー: %s", e)
+        return False
+    except Exception as e:
+        log.error("Windows push エラー: %s", e)
+        return False
+
+
 def write_json(payload: dict, output_path: Path, dry_run: bool = False) -> None:
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     if dry_run:
@@ -203,11 +261,14 @@ def write_json(payload: dict, output_path: Path, dry_run: bool = False) -> None:
 # エントリポイント
 # ──────────────────────────────────────────────
 
-def run_once(output_path: Path, dry_run: bool = False) -> dict:
+def run_once(output_path: Path, dry_run: bool = False, push_windows: bool = False) -> dict:
     vix = fetch_vix()
     dxy = fetch_dxy()
     payload = build_payload(vix, dxy)
     write_json(payload, output_path, dry_run=dry_run)
+    if push_windows:
+        json_text = json.dumps(payload, ensure_ascii=False, indent=2)
+        push_to_windows(json_text, dry_run=dry_run)
     return payload
 
 
@@ -225,22 +286,26 @@ def main() -> None:
         help="書き出しを行わずログのみ出力",
     )
     parser.add_argument(
+        "--push-windows", action="store_true",
+        help="生成後に Windows Agent 経由で OANDA MT5 MQL5/Files に転送する",
+    )
+    parser.add_argument(
         "--loop", type=int, metavar="SECONDS",
-        help="指定秒ごとに繰り返し実行 (例: --loop 300)",
+        help="指定秒ごとに繰り返し実行 (例: --loop 3600)",
     )
     args = parser.parse_args()
     output_path = Path(args.output)
 
     if args.loop:
-        log.info("ループモード開始 (interval=%ds)", args.loop)
+        log.info("ループモード開始 (interval=%ds, push_windows=%s)", args.loop, args.push_windows)
         while True:
             try:
-                run_once(output_path, dry_run=args.dry_run)
+                run_once(output_path, dry_run=args.dry_run, push_windows=args.push_windows)
             except Exception as e:
                 log.error("エラー: %s", e)
             time.sleep(args.loop)
     else:
-        payload = run_once(output_path, dry_run=args.dry_run)
+        payload = run_once(output_path, dry_run=args.dry_run, push_windows=args.push_windows)
         print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
