@@ -28,9 +28,10 @@
 - [x] マクロフィルタ統合: `data_get_study_values` で VIX/DXY 取得 → JSON → MT5 `FileOpen()` → EA ロット係数反映
   - `scripts/macro_filter.py` — VIX/DXY 取得・ロット係数算出・macro_filter.json 書き出し
   - `mql5/MacroFilterReader.mqh` — MT5 EA 用 FileOpen() 読み込みヘッダー（GetMacroLotMultiplier()）
-  - `tests/test_macro_filter.py` — pytest 21件全通過
+  - `tests/test_macro_filter.py` — pytest 27件全通過
   - 対象: instance_gold_live (XAUUSD) — VIX/DXY 感応度が高い
   - [x] OANDA MT5 に EA_v702_OANDA_MacroFilter.mq5 + MacroFilterReader.mqh をデプロイ・コンパイル完了 (0 errors, 0 warnings)
+  - [x] macOS crontab 登録完了: `17 * * * *` macro-filter-push (jobs/trading-ea.yaml)
 
 ### 優先中（factory パイプライン安定後）
 - [ ] Pine ゲート (factory_qa.py Phase 2.5): EA 候補 BT 前に TV でシグナル確認 → 無駄 BT 削減
